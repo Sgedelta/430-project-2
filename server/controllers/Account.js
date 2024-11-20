@@ -57,22 +57,21 @@ const signup = async (req, res) => {
 };
 
 const getAllAccountNames = async (req, res) => {
-    try {
-      const query = {  };
-      const docs = await Account.find(query).select('username').lean().exec();
+  try {
+    const query = { };
+    const docs = await Account.find(query).select('username').lean().exec();
 
-      let usernameArray = [];
+    const usernameArray = [];
 
-      docs.forEach(user => {
-        usernameArray.push(user.username);
-      });
-      
-    
-      return res.json({ accounts: usernameArray });
-    } catch (err) {
-      console.log(err);
-      return res.status(500).json({ error: 'Error retrieving Usernames!' });
-    }
+    docs.forEach((user) => {
+      usernameArray.push(user.username);
+    });
+
+    return res.json({ accounts: usernameArray });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'Error retrieving Usernames!' });
+  }
 };
 
 module.exports = {

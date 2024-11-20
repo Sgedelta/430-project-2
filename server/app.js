@@ -12,10 +12,11 @@ const RedisStore = require('connect-redis').default;
 const redis = require('redis');
 
 const router = require('./router.js');
+const socketSetup = require('./io.js');
 
 const port = process.env.PORT || process.env.NODE_PORT || 3000;
 
-const dbURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1/DomoMaker';
+const dbURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1/430_proj2';
 mongoose.connect(dbURI).catch((err) => {
   if (err) {
     console.log('Could not connect to database');
@@ -44,7 +45,7 @@ redisClient.connect().then(() => {
     store: new RedisStore({
       client: redisClient,
     }),
-    secret: 'Domo Arigato',
+    secret: 'Lets Play a Game...',
     resave: false,
     saveUninitialized: false,
   }));
@@ -54,8 +55,9 @@ redisClient.connect().then(() => {
   app.set('views', `${__dirname}/../views`);
 
   router(app);
+  const server = socketSetup(app);
 
-  app.listen(port, (err) => {
+  server.listen(port, (err) => {
     if (err) { throw err; }
     console.log(`Listening on port ${port}`);
   });

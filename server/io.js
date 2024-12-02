@@ -24,7 +24,7 @@ const handleTurnInput = async (socket, turnVal) => {
   const turnOptions = {
     roomCode: 'TempRoom',
     p1Opt: turnVal,
-    p2Opt: null, // temp!
+    p2Opt: null, // temp! TODO: this
   };
 
   // send it to Game.js to run the logic, then get the values back
@@ -33,15 +33,19 @@ const handleTurnInput = async (socket, turnVal) => {
   io.to('TempRoom').emit('TurnComplete', gameResult);
 };
 
-const socketSetup = (app) => {
+const socketSetup = (app, sessionMiddleware) => {
   const server = http.createServer(app);
   io = new Server(server);
 
+  io.engine.use(sessionMiddleware);
+
   io.on('connection', (socket) => {
     console.log('a user connected');
+    const { session } = socket.request;
 
     GameLogic.startGame();
 
+    socket.join(session.id);
     socket.join('TempRoom'); // TODO: right now we just put everyone in one game with room code "TempRoom"
 
     socket.on('disconnect', () => {

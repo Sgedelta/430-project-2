@@ -40,7 +40,7 @@ redisClient.connect().then(() => {
   app.use(bodyParser.urlencoded({ extended: true }));
   app.use(bodyParser.json());
 
-  app.use(session({
+  const sessionMiddleware = session({
     key: 'sessionID',
     store: new RedisStore({
       client: redisClient,
@@ -48,14 +48,16 @@ redisClient.connect().then(() => {
     secret: 'Lets Play a Game...',
     resave: false,
     saveUninitialized: false,
-  }));
+  })
+
+  app.use(sessionMiddleware);
 
   app.engine('handlebars', expressHandlebars.engine({ defaultLayout: '' }));
   app.set('view engine', 'handlebars');
   app.set('views', `${__dirname}/../views`);
 
   router(app);
-  const server = socketSetup(app);
+  const server = socketSetup(app, sessionMiddleware);
 
   server.listen(port, (err) => {
     if (err) { throw err; }

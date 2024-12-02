@@ -48,6 +48,8 @@ const socketSetup = (app) => {
     io.on('connection', (socket) => {
         console.log('a user connected');
 
+        GameLogic.startGame();
+
         socket.join('TempRoom'); //TODO: right now we just put everyone in one game with room code "TempRoom"
 
         socket.on('disconnect', () => {

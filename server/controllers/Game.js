@@ -7,8 +7,31 @@ module.exports.gamePage = gamePage;
 
 const startGame = async (req, res) => {
 
-
     
+    //temporary version to avoid some issues and not crash the whole thing.
+
+    const gameData = {
+        player1: "000000000000000000000000",
+        roomCode: "TempRoom"//generate a roomcode here based on req session and some random thing?
+        //question: How to ensure that this is random and doesn't randomly generate the same thing twice
+    };
+
+    try {
+        const newGame = new Game(gameData);
+        await newGame.save();
+        return res.status(200).json({message: 'Game Created'}); //temp message?
+
+    } catch (err) {
+        console.log(err);
+        if(err.code == 11000) {
+            return {message: "duplicate key"};
+        }
+        return res.status(500).json({ error: 'Error Starting Game!'});
+    }
+
+
+
+    /*
     if(!req.session.account) {
         return res.status(400).json({ error: 'Starting player not found.'});
     } 
@@ -29,7 +52,7 @@ const startGame = async (req, res) => {
         console.log(err);
         return res.status(500).json({ error: 'Error Starting Game!'});
     }
-
+    */
 
 
 };
@@ -46,7 +69,7 @@ const handleGameLogic = async (turnOptions) => {
     try {
         const query = {roomCode: turnOptions.roomCode};
         let docs = await Game.find(query).select('p1Points p1Uses p2Points p2Uses winner gameOver').lean().exec();
-        
+
         //game logic:
         updateDocs(turnOptions, docs);
 

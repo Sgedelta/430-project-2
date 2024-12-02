@@ -6,6 +6,12 @@ html, body {
     overflow-x: hidden;
 }
 
+label {
+    display: block;
+}
+
+
+
 #logo {
     height: 40px;
     width: 40;

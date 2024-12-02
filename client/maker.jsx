@@ -1,9 +1,11 @@
 const helper = require('./helper.js');
 const React = require('react');
+const socket = io();
 
 const {useState, useEffect} = React;
 const {createRoot} = require('react-dom/client');
 
+//here for reference atm TODO: delete
 const handleDomo = (e, onDomoAdded) => {
     e.preventDefault();
     helper.hideError();
@@ -20,24 +22,155 @@ const handleDomo = (e, onDomoAdded) => {
     return false;
 };
 
-const DomoForm = (props) => {
-    return(
-        <form id="domoForm"
-        name = "domoForm"
-        onSubmit={(e) => handleDomo(e, props.triggerReload)}
-        action="/maker"
-        method="POST"
-        className="domoForm"
-    >
-        <label htmlFor="name">Name: </label>
-        <input id="domoName" type="text" name="name" placeholder="Domo Name" />
-        <label htmlFor="age">Age: </label>
-        <input id="domoAge" type="number" name="age" min="0" />
-        <input className="makeDomoSubmit" type="submit" value = "Make Domo" />
-    </form>
-    );
+
+let waiting = false;
+
+const handleTurn = async (e) => {
+    e.preventDefault();
+
+    const turnOption = document.querySelector('input[name="turn_option"]:checked');
+
+    if(!turnOption) {
+        //the player did not select something. They need to do that - display an error.
+        //TODO: display error
+
+        return;
+    }
+
+    //send our turn selection to the server
+        //TODO: replace with room info
+    socket.emit('TurnSent', turnOption.value);
+    
+    //enter a waiting mode
+    waiting = true;
+    setTurnFormEnabled(false); //stop people from inputting
+
+    //check every 100ms to see if we are not waiting anymore
+    while (waiting) {
+        await new Promise((resolve) => setTimeout(resolve, 100)); 
+    }
+
+
+    //at the end of handling things, uncheck the value of inputs, let more input
+    setTurnFormEnabled(true);
+    turnOption.checked = false;
+
+}
+
+const setTurnFormEnabled = (val) => {
+
+    const turnForm = document.querySelector("#turnInputWrapper");
+
+    turnForm.disabled = !val;
+
 };
 
+const TurnForm = (props) => {
+    return(
+        <form 
+        id = "turnForm" name = "turnForm"
+        onSubmit={(e) => handleTurn(e)}
+        action="/completeTurn"
+        method="POST"
+        className = "turnForm"
+        >
+            <fieldset id="turnInputWrapper">
+            <h1>Basic Actions</h1>
+            <ul>
+                <label htmlFor="gain"><input type="radio" id="gain" class="turnInput" name="turn_option" value="gain" /> Gain</label>
+                <label htmlFor="setback"><input type="radio" id="setback" class="turnInput" name="turn_option" value="setback"/> Setback</label>
+                <label htmlFor="rest"><input type="radio" id="rest" class="turnInput" name="turn_option" value="rest"/> Rest</label>
+            </ul>
+            <h1>Special Actions</h1>         
+            <ul>
+                <label htmlFor="exp_gain">
+                    <input type="checkbox" disabled="true" id="exp_gain_use" />
+                    <input type="radio" id="exp_gain" class="turnInput" name="turn_option" value="exp_gain"/> Expert Gain
+                </label>
+
+                <label htmlFor="reset">
+                    <input type="checkbox" disabled="true" id = "reset_use" />
+                    <input type="radio" id="reset" class="turnInput" name="turn_option" value="reset"/> Reset
+                </label>
+
+                <label htmlFor="sacrifice">
+                    <input type="checkbox" disabled="true" id = "sacrifice_use" /> <input type="checkbox" disabled="true" id = "sacrifice_use2"/>
+                    <input type="radio" id="sacrifice" class="turnInput" name="turn_option" value="sacrifice"/> Sacrifice
+                </label>
+
+                <label htmlFor="steal">
+                    <input type="checkbox" disabled="true" id = "steal_use"/> <input type="checkbox" disabled="true" id = "steal_use2"/>
+                    <input type="radio" id="steal" class="turnInput" name="turn_option" value="steal"/> Steal
+                </label>
+            </ul>   
+
+            <input className="makeDomoSubmit" type="submit" value = "Submit Turn" />
+            
+            </fieldset>
+        </form>
+    );
+}
+
+const PointDisplay = (props) => {
+
+    return(
+        <fieldset id="pointDisplay" disabled="true">
+
+            <div id="ourPoints">
+                <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" />
+            </div>
+
+            <div id="otherPoints">
+                <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" />
+            </div>
+
+
+        </fieldset>
+    );
+
+};
+
+
+const updateDisplayAfterTurn = (gameResult) => {
+
+    console.log(gameResult);
+
+    //get the things we will be updating
+    const ourPoints = document.querySelector("#ourPoints").children;
+    const otherPoints = document.querySelector("#otherPoints").children;
+    const expGainUse = document.querySelector("#exp_gain_use");
+    const resetUse = document.querySelector("#reset_use");
+    const sacrificeUses = [
+        document.querySelector("#sacrifice_use"),
+        document.querySelector("#sacrifice_use2"),
+    ];
+    const stealUses = [
+        document.querySelector("#steal_use"),
+        document.querySelector("#steal_use2"),
+    ];
+
+    //update points and uses
+    
+        //points - assume we are p1 for now. TODO
+    for(let i = 0; i < 5; ++i) {
+        ourPoints[i].checked = gameResult.p1Points > i;
+        otherPoints[i].checked = gameResult.p2Points > i;
+    }
+
+        //uses - not handling other uses for now. because they are not in the place TODO
+    for(let i = 0; i < 2; ++i) {
+        sacrificeUses[i].checked = gameResult.p1Uses.sacrifice <= i;
+    }
+    for(let i = 0; i < 2; ++i) {
+        stealUses[i].checked = gameResult.p1Uses.steal <= i;
+    }
+    
+    expGainUse.checked = gameResult.p1Uses.exp_gain === 1;
+    resetUse.checked = gameResult.p1Uses.reset === 1;
+
+};
+
+//here for reference atm TODO: delete
 const handleTrade = async (e, onTradeCompleted) => {
     e.preventDefault();
     helper.hideError();
@@ -78,6 +211,7 @@ const handleTrade = async (e, onTradeCompleted) => {
     return false;
 };
 
+//here for reference atm TODO: delete
 const TradeForm = (props) => {
     return(
         <form id="tradeForm"
@@ -97,6 +231,7 @@ const TradeForm = (props) => {
     );
 };
 
+//here for reference atm TODO: delete
 const DomoList = (props) => {
     const [domos, setDomos] = useState(props.domos);
 
@@ -141,15 +276,8 @@ const App = () => {
 
     return (
         <div>
-            <div id="makeDomo">
-                <DomoForm triggerReload={()=>setReloadDomos(!reloadDomos)} />
-            </div>
-            <div id="tradeDomo">
-                <TradeForm triggerReload={()=>setReloadDomos(!reloadDomos)} />
-            </div>
-            <div id="domos">
-                <DomoList domos={[]} reloadDomos={reloadDomos} />
-            </div>
+            <PointDisplay />
+            <TurnForm />
         </div>
     );
 };
@@ -157,6 +285,19 @@ const App = () => {
 const init = () => {
     const root = createRoot(document.getElementById('app'));
     root.render(<App />);
+
+
+    
+
+    
+    socket.on('TurnComplete', (gameResult) => {
+        console.log(gameResult);
+        updateDisplayAfterTurn(gameResult);
+        
+        //tell the turn to be over
+        waiting = false;
+    });
+
 }
 
 window.onload = init;

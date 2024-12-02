@@ -30,3 +30,13 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   module.exports.requiresSecure = bypassSecure;
 }
+
+const requiresGame = (req, res, next) => {
+  //assumed logged in
+
+  if(req.session.account) {
+    
+  }
+
+  return next();
+}

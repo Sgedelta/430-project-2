@@ -32,11 +32,11 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const requiresGame = (req, res, next) => {
-  //assumed logged in
+  // assumed logged in
 
-  if(req.session.account) {
-    
+  if (req.session.account) {
+
   }
 
   return next();
-}
+};

@@ -62,10 +62,21 @@ const GameSchema = new mongoose.Schema({
     },
   },
 
+  turnOngoing: {
+    type: Boolean,
+    default: false,
+  },
+
+  turnOption: {
+    type: String,
+  },
+
   startTime: {
     type: Date,
     default: Date.now,
   },
+
+
 
 });
 

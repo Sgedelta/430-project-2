@@ -22,6 +22,25 @@ const handleDomo = (e, onDomoAdded) => {
     return false;
 };
 
+//a function that tells the server to create a game and joins it as player 1
+const requestNewGame = () => {
+    socket.emit('CreateNewGame');
+};
+
+//a function that attempts to join or rejoin a given game (by room code) 
+const requestJoinGame = (roomCode) => {
+    socket.emit('RequestJoin', roomCode);
+}
+
+//a function that sets our local information to that of a given game's
+const setGameInfo = (roomInfo) => {
+    localStorage.setItem("gameRoomCode", roomInfo.roomCode);
+    if(roomInfo.player) {
+        localStorage.setItem("gamePlayerValue", roomInfo.player);
+    }
+}
+
+
 
 let waiting = false;
 
@@ -37,9 +56,15 @@ const handleTurn = async (e) => {
         return;
     }
 
+    const turnInfo = {
+        val: turnOption.value,
+        player: localStorage.getItem("gamePlayerValue"),
+        room: localStorage.getItem("gameRoomCode"),
+    }
+
     //send our turn selection to the server
         //TODO: replace with room info
-    socket.emit('TurnSent', turnOption.value);
+    socket.emit('TurnSent', turnInfo);
     
     //enter a waiting mode
     waiting = true;
@@ -288,7 +313,7 @@ const init = () => {
 
 
     
-
+    //socket setup:
     
     socket.on('TurnComplete', (gameResult) => {
         console.log(gameResult);
@@ -297,6 +322,15 @@ const init = () => {
         //tell the turn to be over
         waiting = false;
     });
+    //handle errors we get back from socket
+    socket.on('ErrorChannel', (err) => {
+        console.log(err);
+        //Display Error:
+        // TODO: DISPLAY ERROR FUNCTION UPDATE
+        helper.handleError(err);
+    })
+    //set our game data to the room code and that we are player one
+    socket.on('JoinGame', (roomCode) => setGameInfo({roomCode: roomCode, player: 0}));    
 
 }
 

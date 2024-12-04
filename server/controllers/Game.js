@@ -1,58 +1,61 @@
 const models = require('../models');
-
-const { Game } = models;
+const { Game, Account } = models;
 
 const gamePage = async (req, res) => res.render('app');
 module.exports.gamePage = gamePage;
 
-const generateRoomCode = async (playerID) => {
-  
-  // TODO: import a new uuid library to generate room codes.
+const getNewPlayerData = async (username) => {
+    // get user data
+    let playerData = {};
+    try {
+        const query = {username: username}
+        const user = await Account.findOne(query).lean().exec();
+
+
+
+        //generate the new room code
+        playerData.newRoomCode = `${user.username}${user.gamesHosted}`;
+        //send this player's mongoose id to the game to log it
+        playerData.player1_id = user._id;
+
+        Account.findOneAndUpdate(query, {gamesHosted: user.gamesHosted+1}).lean().exec();
+
+
+
+    } catch (err) {
+        console.log(err);
+        return {error: "An error occured finding player!"};
+    }
+    return playerData;
 };
 
 const startGame = async (session) => {
   // temporary version to avoid some issues and not crash the whole thing.
 
-  const newRoomCode = generateRoomCode(session.id);
+  const playerData = await getNewPlayerData(session.account.username);
+
+  if(playerData.error) {
+    // TODO: handle error here!
+    return {error: `Error Starting Game: ${playerData.error}`}
+  }
+
   const gameData = {
-    player1: session.id,
-    roomCode: newRoomCode,
+    player1: playerData.player1_id,
+    roomCode: playerData.newRoomCode,
   };
 
   try {
     const newGame = new Game(gameData);
     await newGame.save();
-    return res.status(200).json({ message: 'Game Created' }); // temp message?
+    return { message: 'Game Created', roomCode: newGame.roomCode }; // temp message?
   } catch (err) {
     console.log(err);
     if (err.code === 11000) {
-      return { message: 'duplicate key' };
+      return { message: `Game with attempted code already exists! Try Again!` };
     }
     return { error: 'Error Starting Game!' };
   }
-
-  /*
-    if(!req.session.account) {
-        return res.status(400).json({ error: 'Starting player not found.'});
-    }
-
-    const gameData = {
-        player1: req.session._id,
-        roomCode: "TempRoom"//generate a roomcode here based on req session and some random thing?
-        //question: How to ensure that this is random and doesn't randomly generate the same thing twice
-    };
-
-    try {
-        const newGame = new Game(gameData);
-        await newGame.save();
-        req.session.game = Game.toAPI(newGame);
-        return res.status(200).json({message: 'Game Created'}); //temp message?
-
-    } catch (err) {
-        console.log(err);
-        return res.status(500).json({ error: 'Error Starting Game!'});
-    }
-    */
+  
 };
 module.exports.startGame = startGame;
 
@@ -240,3 +243,34 @@ const handleGameLogic = async (turnOptions) => {
   return updatedData;
 };
 module.exports.handleGameLogic = handleGameLogic;
+
+//a function that sees if a game with a given room code exists, and if it's waiting for turn input. 
+// If it is, returns that it is and what the turn option was and sets it to no longer be. if it isn't, returns that and sets it to be, storing the turn option
+const turnRecieved = async (roomCode, turnOpt) => {
+    try {
+        const query = {roomCode: roomCode};
+        let game = await Game.findOne(query).select("turnOngoing turnOption").lean().exec();
+
+        //we need to return that the game is waiting for a turn.
+        if(game.turnOngoing) {
+            game.turnOngoing = false;
+
+            await Game.findOneAndUpdate(query, game);
+
+            return {continue: true, opt: game.turnOption};
+        } 
+        //the game is not waiting for a turn.
+        else {
+            game.turnOngoing = true;
+            game.turnOption = turnOpt;
+            
+            await Game.findOneAndUpdate(query, game);
+
+            return {continue: false};
+        }
+
+    } catch (err) {
+        return {error: "Error recieving turn information!"}
+    }
+}
+module.exports.turnRecieved = turnRecieved;

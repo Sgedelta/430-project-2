@@ -37,6 +37,12 @@ const AccountSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  gamesHosted: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: 0,
+  }
 });
 
 // Converts a doc to something we can store in redis later on.

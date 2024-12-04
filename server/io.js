@@ -13,24 +13,52 @@ const handleChatMessage = (socket, msg) => {
   });
 };
 
-const handleTurnInput = async (socket, turnVal) => {
-  // TODO: for now, just emit our player's change back to the room. We would wait until we got both players and THEN handle game logic
+const handleTurnInput = async (socket, turnInfo) => {
+    // go get and update information on the game
+    const gameStatus = await GameLogic.turnRecieved(turnInfo.room, turnInfo.val);
 
-  // first, wait for both players to emit to the room
-  // TODO: that!
+    //error check:
+    if(gameStatus.error) {
+        //might need to be io?
+        socket.to(turnInfo.room).emit('ErrorChannel', gameStatus.error);
+        return;
+    }
 
+    //the game has been informed of our turn, and we don't need to continue this function. game is waiting.
+    if(!gameStatus.continue) {
+        return;
+    }
+
+    // once we get here, we've recieved both turns.
   // then, construct a obj to send to the game logic.
   //  we would also send room info that identifies the "game" we need to reference. right now that will be
-  const turnOptions = {
-    roomCode: 'TempRoom',
-    p1Opt: turnVal,
-    p2Opt: null, // temp! TODO: this
+  let turnOptions = {
+    roomCode: turnInfo.room,
+    p1Opt: null,
+    p2Opt: null, 
   };
+
+  if(turnInfo.player === 0) {
+    //we are player one
+    p1Opt: turnInfo.val;
+    p2Opt: gameStatus.opt;
+  } else {
+    //we are player two
+    p1Opt: gameStatus.opt;
+    p2Opt: turnInfo.val;
+  }
 
   // send it to Game.js to run the logic, then get the values back
   const gameResult = await GameLogic.handleGameLogic(turnOptions);
 
-  io.to('TempRoom').emit('TurnComplete', gameResult);
+  //error check
+  if(gameResult.error) {
+    //might need to be io
+    socket.to(turnInfo.room).emit('ErrorChannel', gameResult.error);
+  }
+
+  // might need to be io?
+  socket.to(turnInfo.room).emit('TurnComplete', gameResult);
 };
 
 const socketSetup = (app, sessionMiddleware) => {
@@ -41,11 +69,9 @@ const socketSetup = (app, sessionMiddleware) => {
 
   io.on('connection', (socket) => {
     console.log('a user connected');
-    const { session } = socket.request;
+    const { session } = socket.request; //pull session info
 
-    GameLogic.startGame();
-
-    socket.join(session.id);
+    socket.join(session.id); // join a room that is our sessionID
     socket.join('TempRoom'); // TODO: right now we just put everyone in one game with room code "TempRoom"
 
     socket.on('disconnect', () => {
@@ -55,15 +81,24 @@ const socketSetup = (app, sessionMiddleware) => {
     socket.on('chat message', (msg) => handleChatMessage(socket, msg));
     socket.on('room change', (room) => handleRoomChange(socket, room));
 
-    // TODO: update this to see if we're waiting or if we need to start a new "turn" - so we only send one response back
-    socket.on('TurnSent', (turnVal) => handleTurnInput(socket, turnVal));
+    // function ends early after updating game if this is first turn submited
+    socket.on('TurnSent', (turnInfo) => handleTurnInput(socket, turnInfo));
+    // creates a new game 
+    socket.on('CreateNewGame', () => socketMakeRoom(socket, session));
+    // finds a game and sends out info to the socket and/or updates player info in game
+    socket.on('RequestJoin', (roomCode) => );
   });
 
   return server;
 };
 module.exports = socketSetup;
 
-const socketMakeRoom = (app) => {
-  // TODO: make a new room for a game.
-
-};
+// A function that attempts to start a new game for the player and then returns via socket if the game was made
+const socketMakeRoom = async (socket, session) => {
+    const gameResult = await GameLogic.startGame(session);
+    if(gameResult.error) {
+        socket.emit('ErrorChannel', gameResult);
+    } else {
+        socket.emit('JoinGame', gameResult.roomCode);
+    }
+}

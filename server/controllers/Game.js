@@ -30,7 +30,6 @@ const getNewPlayerData = async (username) => {
 };
 
 const startGame = async (session) => {
-  // temporary version to avoid some issues and not crash the whole thing.
 
   const playerData = await getNewPlayerData(session.account.username);
 
@@ -47,11 +46,11 @@ const startGame = async (session) => {
   try {
     const newGame = new Game(gameData);
     await newGame.save();
-    return { message: 'Game Created', roomCode: newGame.roomCode }; // temp message?
+    return { message: 'Game Created', roomCode: newGame.roomCode, player: 0 }; // temp message?
   } catch (err) {
     console.log(err);
     if (err.code === 11000) {
-      return { message: `Game with attempted code already exists! Try Again!` };
+      return { error: `Game with attempted code already exists! Try Again!` };
     }
     return { error: 'Error Starting Game!' };
   }
@@ -201,22 +200,21 @@ const handleGameLogic = async (turnOptions) => {
   let updatedData = {};
 
   try {
-    // get the game's data
+    //get gameData
     const query = { roomCode: turnOptions.roomCode };
-    let docs = await Game.find(query).select(
-      'p1Points p1Uses p2Points p2Uses winner gameOver',
-    ).lean().exec();
+
+    let docs = await getGameData(turnOptions.roomCode);
 
     // check if game is over
-    if (docs[0].gameOver) {
-      return { error: `Move Attempted when game was over! ${docs[0].winner} has won!` };
+    if (docs.gameOver) {
+      return { error: `Move Attempted when game was over! ${docs.winner} has won!` };
     }
 
     console.log('==========DOCS============');
-    console.log(docs[0]);
+    console.log(docs);
     console.log('========END DOCS========');
     // game logic:
-    docs = UpdateDocs(turnOptions, docs[0]);
+    docs = UpdateDocs(turnOptions, docs);
 
     console.log('========NEW DOCS========');
     console.log(docs);
@@ -227,6 +225,7 @@ const handleGameLogic = async (turnOptions) => {
 
     // then, set updatedData with the data we want to return
     updatedData = {
+      roomCode: turnOptions.roomCode,
       p1Points: docs.p1Points,
       p1Uses: docs.p1Uses,
       p2Points: docs.p2Points,
@@ -243,6 +242,24 @@ const handleGameLogic = async (turnOptions) => {
   return updatedData;
 };
 module.exports.handleGameLogic = handleGameLogic;
+
+const getGameData = async (roomCode) => {
+
+    try {
+        // get the game's data
+        const query = { roomCode: roomCode };
+        let docs = await Game.find(query).select(
+            'p1Points p1Uses p2Points p2Uses winner gameOver',
+        ).lean().exec();
+        return docs[0];
+    }
+    catch (err) {
+        console.log(err);
+        return {error:  `Error retreiving game with code ${roomCode}`}
+    }
+}
+module.exports.getGameData = getGameData;
+
 
 //a function that sees if a game with a given room code exists, and if it's waiting for turn input. 
 // If it is, returns that it is and what the turn option was and sets it to no longer be. if it isn't, returns that and sets it to be, storing the turn option
@@ -274,3 +291,74 @@ const turnRecieved = async (roomCode, turnOpt) => {
     }
 }
 module.exports.turnRecieved = turnRecieved;
+
+//a function that returns if the game with the given roomCode exists. Can return an error in a JSON object.
+const doesGameWithCodeExist = async (roomCode) => {
+    try {
+        const query = {roomCode: roomCode};
+        const game = await Game.findOne(query).lean().exec();
+
+        const gameInfo = {
+            game: game,
+            exists: game !== null,
+        }
+
+        return gameInfo;
+
+    } catch (err) {
+        console.log(err)
+        return {error: "Error Retrieving game"}
+    }
+}
+module.exports.doesGameWithCodeExist = doesGameWithCodeExist;
+
+const joinPlayerToGame = async (roomCode, player) => {
+    try {
+        const query = {roomCode: roomCode};
+        let game = await Game.findOne(query).lean().exec();
+
+        if(game.player2 === undefined) {
+            game.player2 = player;
+            await Game.findOneAndUpdate(query, game);
+            return;
+        } else {
+            return {error: 'Error adding player to game - game is full!'}
+        }
+    } catch (err) {
+        console.log(err);
+        return {error: 'Error retrieving game'}
+    }
+}
+module.exports.joinPlayerToGame = joinPlayerToGame;
+
+const findAllGamesWithPlayer = async (username) => {
+
+    //first, get account data
+    let accID;
+    try {
+        const accQuery = {username: username};
+        accID = await Account.findOne(accQuery).lean().exec();
+        accID = accID._id;
+    } catch (err) {
+        console.log(err);
+        return {error: `Error finding user with username ${username}`};
+    }
+
+    //now, find games where this user is player 1 OR player 2
+    let games;
+    try {
+        const p1Query = {player1: accID};
+        const p2Query = {player2: accID};
+        games = await Game.find(p1Query).select('roomCode').lean().exec();
+        const p2games = await Game.find(p2Query).select('roomCode').lean().exec();
+        games = games.concat(p2games);
+
+    } catch (err) {
+        console.log(err);
+        return {error: `Error finding games to allow rejoin!`}
+    }
+
+    return games;
+    
+}
+module.exports.findAllGamesWithPlayer = findAllGamesWithPlayer;

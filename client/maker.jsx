@@ -5,6 +5,7 @@ const socket = io();
 const {useState, useEffect} = React;
 const {createRoot} = require('react-dom/client');
 
+
 //here for reference atm TODO: delete
 const handleDomo = (e, onDomoAdded) => {
     e.preventDefault();
@@ -34,6 +35,8 @@ const requestJoinGame = (roomCode) => {
 
 //a function that sets our local information to that of a given game's
 const setGameInfo = (roomInfo) => {
+    console.log("setting game info: ");
+    console.log(roomInfo);
     localStorage.setItem("gameRoomCode", roomInfo.roomCode);
     if(roomInfo.player) {
         localStorage.setItem("gamePlayerValue", roomInfo.player);
@@ -61,7 +64,6 @@ const handleTurn = async (e) => {
         player: localStorage.getItem("gamePlayerValue"),
         room: localStorage.getItem("gameRoomCode"),
     }
-
     //send our turn selection to the server
         //TODO: replace with room info
     socket.emit('TurnSent', turnInfo);
@@ -86,11 +88,34 @@ const setTurnFormEnabled = (val) => {
 
     const turnForm = document.querySelector("#turnInputWrapper");
 
-    turnForm.disabled = !val;
+    if(turnForm)
+        turnForm.disabled = !val;
 
 };
 
 const TurnForm = (props) => {
+
+
+
+    let data = props.gameState;
+    const player = localStorage.getItem('gamePlayerValue');
+    let uses;
+
+
+    //ignore if they do not give props, or if the player data is not there
+    if(!data.p1Uses || !data.p2Uses || player === null) {
+        return(<div></div>);
+    }
+
+    console.log(player);
+
+    if(player === 0) {
+        uses = data.p1Uses;
+    } else {
+        uses = data.p2Uses;
+    }
+    
+
     return(
         <form 
         id = "turnForm" name = "turnForm"
@@ -109,23 +134,23 @@ const TurnForm = (props) => {
             <h1>Special Actions</h1>         
             <ul>
                 <label htmlFor="exp_gain">
-                    <input type="checkbox" disabled="true" id="exp_gain_use" />
-                    <input type="radio" id="exp_gain" class="turnInput" name="turn_option" value="exp_gain"/> Expert Gain
+                    <input type="checkbox" disabled="true" id="exp_gain_use"  checked={uses.exp_gain < 1}/>
+                    <input type="radio" id="exp_gain" class="turnInput" name="turn_option" value="exp_gain" disabled = {uses.exp_gain < 1}/> Expert Gain
                 </label>
 
                 <label htmlFor="reset">
-                    <input type="checkbox" disabled="true" id = "reset_use" />
-                    <input type="radio" id="reset" class="turnInput" name="turn_option" value="reset"/> Reset
+                    <input type="checkbox" disabled="true" id = "reset_use"  checked={uses.reset < 1}/>
+                    <input type="radio" id="reset" class="turnInput" name="turn_option" value="reset" disabled = {uses.reset < 1}/> Reset
                 </label>
 
                 <label htmlFor="sacrifice">
-                    <input type="checkbox" disabled="true" id = "sacrifice_use" /> <input type="checkbox" disabled="true" id = "sacrifice_use2"/>
-                    <input type="radio" id="sacrifice" class="turnInput" name="turn_option" value="sacrifice"/> Sacrifice
+                    <input type="checkbox" disabled="true" id = "sacrifice_use"  checked={uses.sacrifice < 1}/> <input type="checkbox" disabled="true" id = "sacrifice_use2" checked={uses.sacrifice < 2}/>
+                    <input type="radio" id="sacrifice" class="turnInput" name="turn_option" value="sacrifice" disabled = {uses.sacrifice < 1} /> Sacrifice
                 </label>
 
                 <label htmlFor="steal">
-                    <input type="checkbox" disabled="true" id = "steal_use"/> <input type="checkbox" disabled="true" id = "steal_use2"/>
-                    <input type="radio" id="steal" class="turnInput" name="turn_option" value="steal"/> Steal
+                    <input type="checkbox" disabled="true" id = "steal_use" checked={ uses.steal < 1}/> <input type="checkbox" disabled="true" id = "steal_use2" checked={uses.steal < 2}/>
+                    <input type="radio" id="steal" class="turnInput" name="turn_option" value="steal" disabled = {uses.steal < 1 }/> Steal
                 </label>
             </ul>   
 
@@ -138,15 +163,38 @@ const TurnForm = (props) => {
 
 const PointDisplay = (props) => {
 
+    let data = props.gameState;
+
+    const player = localStorage.getItem('gamePlayerValue');
+    console.log(`player is ${player}`)
+    let ourPoints;
+    let otherPoints;
+    console.log(player);
+    if(player === 0) {
+        ourPoints = data.p1Points;
+        otherPoints = data.p2Points;
+    } else {
+        ourPoints = data.p2Points;
+        otherPoints = data.p1Points;
+    }
+
     return(
         <fieldset id="pointDisplay" disabled="true">
 
             <div id="ourPoints">
-                <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" />
+                <input type="checkbox" checked = {ourPoints >= 1}/> 
+                <input type="checkbox" checked = {ourPoints >= 2}/> 
+                <input type="checkbox" checked = {ourPoints >= 3}/> 
+                <input type="checkbox" checked = {ourPoints >= 4}/> 
+                <input type="checkbox" checked = {ourPoints >= 5}/>
             </div>
 
             <div id="otherPoints">
-                <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" /> <input type="checkbox" />
+                <input type="checkbox" checked = {otherPoints >= 1}/> 
+                <input type="checkbox" checked = {otherPoints >= 2}/> 
+                <input type="checkbox" checked = {otherPoints >= 3}/> 
+                <input type="checkbox" checked = {otherPoints >= 4}/> 
+                <input type="checkbox" checked = {otherPoints >= 5}/>
             </div>
 
 
@@ -155,45 +203,42 @@ const PointDisplay = (props) => {
 
 };
 
+const StartGame = async (e) => {
 
-const updateDisplayAfterTurn = (gameResult) => {
+    e.preventDefault();
 
-    console.log(gameResult);
+    socket.emit('CreateNewGame');
+}
 
-    //get the things we will be updating
-    const ourPoints = document.querySelector("#ourPoints").children;
-    const otherPoints = document.querySelector("#otherPoints").children;
-    const expGainUse = document.querySelector("#exp_gain_use");
-    const resetUse = document.querySelector("#reset_use");
-    const sacrificeUses = [
-        document.querySelector("#sacrifice_use"),
-        document.querySelector("#sacrifice_use2"),
-    ];
-    const stealUses = [
-        document.querySelector("#steal_use"),
-        document.querySelector("#steal_use2"),
-    ];
+const StartGameButton = (props) => {
+    return(
+        <form id="makeNewGameForm"
+        onSubmit={(e) => StartGame(e)}>
 
-    //update points and uses
-    
-        //points - assume we are p1 for now. TODO
-    for(let i = 0; i < 5; ++i) {
-        ourPoints[i].checked = gameResult.p1Points > i;
-        otherPoints[i].checked = gameResult.p2Points > i;
-    }
+            <input type="submit" value = "Make New Game" />
 
-        //uses - not handling other uses for now. because they are not in the place TODO
-    for(let i = 0; i < 2; ++i) {
-        sacrificeUses[i].checked = gameResult.p1Uses.sacrifice <= i;
-    }
-    for(let i = 0; i < 2; ++i) {
-        stealUses[i].checked = gameResult.p1Uses.steal <= i;
-    }
-    
-    expGainUse.checked = gameResult.p1Uses.exp_gain === 1;
-    resetUse.checked = gameResult.p1Uses.reset === 1;
+        </form>
+    );
+}
 
-};
+const JoinGame = async (e) => {
+    e.preventDefault();
+
+    const code = document.querySelector("#roomCodeInput").value;
+
+    socket.emit('RequestJoin', code);
+}
+
+const JoinGameButton = (props) => {
+    return(
+        <form id="joinGameForm"
+        onSubmit={(e) => JoinGame(e)}>
+            <label htmlFor="roomCodeInput">Enter Room Code: </label><input type="text" id="roomCodeInput"/>
+            <input type="submit" value = "Join Game" />
+
+        </form>
+    );
+}
 
 //here for reference atm TODO: delete
 const handleTrade = async (e, onTradeCompleted) => {
@@ -296,31 +341,58 @@ const DomoList = (props) => {
 };
 
 
-const App = () => {
+const App = (props) => {
+    // use State/react data to know if we need to render start/join/game list 
+    //  or if we need to load pointDisplay/Turn Form/etc
     const [reloadDomos, setReloadDomos] = useState(false);
+    const [gameState, setGameState] = useState({});
+
+    useEffect(() => {
+        socketSubscriptions(setGameState);
+    });
+
 
     return (
         <div>
-            <PointDisplay />
-            <TurnForm />
+            <StartGameButton />
+            <JoinGameButton />
+            <PointDisplay gameState = {gameState}/>
+            <TurnForm gameState = {gameState}/>
         </div>
     );
 };
 
-const init = () => {
-    const root = createRoot(document.getElementById('app'));
-    root.render(<App />);
+const socketFirstTime = () => {
+    socketSubscriptions();
+
+    //additional firstTime setup
+     if(localStorage.getItem('gameRoomCode') !== null) {
+        console.log(`Local Storage Is ${localStorage.getItem('gameRoomCode')}`);
+
+        socket.emit('RequestGameState', localStorage.getItem('gameRoomCode'));
+    }
+};
+
+const socketSubscriptions = (setGameState) => {
+    //first, reset old listeners
+    socket.off('TurnComplete');
+    socket.off('SetInfo');
+    socket.off('ErrorChannel');
+    socket.off('JoinGame');
 
 
-    
-    //socket setup:
-    
+    //now, make new listeners
     socket.on('TurnComplete', (gameResult) => {
-        console.log(gameResult);
-        updateDisplayAfterTurn(gameResult);
+        if(setGameState) 
+            setGameState(gameResult);
         
+
         //tell the turn to be over
         waiting = false;
+    });
+    socket.on('SetInfo', (gameResult) => {
+        if(setGameState)
+            setGameState(gameResult);
     });
     //handle errors we get back from socket
     socket.on('ErrorChannel', (err) => {
@@ -330,8 +402,23 @@ const init = () => {
         helper.handleError(err);
     })
     //set our game data to the room code and that we are player one
-    socket.on('JoinGame', (roomCode) => setGameInfo({roomCode: roomCode, player: 0}));    
+    socket.on('JoinGame', (joinInfo) => setGameInfo({roomCode: joinInfo.roomCode, player: joinInfo.player}));
+    
+};
 
+
+const init = () => {
+    const root = createRoot(document.getElementById('app'));
+
+    let gameState = {};
+    root.render(<App gameState={gameState}/>);
+
+
+    
+    //socket setup:
+    socketFirstTime();
+   
+    
 }
 
 window.onload = init;

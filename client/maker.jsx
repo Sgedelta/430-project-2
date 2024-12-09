@@ -96,18 +96,21 @@ const setTurnFormEnabled = (val) => {
 const TurnForm = (props) => {
 
 
-
+    //grab some things 
     let data = props.gameState;
     const player = localStorage.getItem('gamePlayerValue');
     let uses;
 
 
     //ignore if they do not give props, or if the player data is not there
-    if(!data.p1Uses || !data.p2Uses || player === null) {
+    if(!data.p1Uses || !data.p2Uses) {
+
+        //reload after a delay
+        props.reload.toggle();
+
+        //return nothing in the mean time
         return(<div></div>);
     }
-
-    console.log(player);
 
     if(player === 0) {
         uses = data.p1Uses;
@@ -169,7 +172,6 @@ const PointDisplay = (props) => {
     console.log(`player is ${player}`)
     let ourPoints;
     let otherPoints;
-    console.log(player);
     if(player === 0) {
         ourPoints = data.p1Points;
         otherPoints = data.p2Points;
@@ -203,17 +205,14 @@ const PointDisplay = (props) => {
 
 };
 
-const StartGame = async (e) => {
-
-    e.preventDefault();
-
-    socket.emit('CreateNewGame');
-}
-
 const StartGameButton = (props) => {
     return(
         <form id="makeNewGameForm"
-        onSubmit={(e) => StartGame(e)}>
+        onSubmit={(e) => {
+            e.preventDefault();
+            socket.emit('CreateNewGame');
+            props.setInGame(true);
+        }}>
 
             <input type="submit" value = "Make New Game" />
 
@@ -221,24 +220,42 @@ const StartGameButton = (props) => {
     );
 }
 
-const JoinGame = async (e) => {
-    e.preventDefault();
-
-    const code = document.querySelector("#roomCodeInput").value;
-
-    socket.emit('RequestJoin', code);
-}
-
 const JoinGameButton = (props) => {
+
+    const [roomCode, setRoomCode] = useState('');
+
     return(
         <form id="joinGameForm"
-        onSubmit={(e) => JoinGame(e)}>
-            <label htmlFor="roomCodeInput">Enter Room Code: </label><input type="text" id="roomCodeInput"/>
+        onSubmit={(e) => {
+            e.preventDefault();
+            socket.emit('RequestJoin', roomCode);
+            props.setInGame(true);
+        }}>
+            <label htmlFor="roomCodeInput">Enter Room Code: </label>
+            <input type="text" id="roomCodeInput" 
+            value={roomCode} onChange={e=> setRoomCode(e.target.value)}/>
             <input type="submit" value = "Join Game" />
 
         </form>
     );
 }
+
+const LeaveCurrentRoomButton = (props) => {
+
+    return(
+        <form id="leaveGameForm"
+        onSubmit={(e) => {
+            e.preventDefault();
+            localStorage.removeItem('gameRoomCode');
+            localStorage.removeItem('gamePlayerValue');
+            props.setInGame(false);
+        }}
+        >
+            <input type="submit" value = "Leave Current Room" />
+        </form>
+    );
+
+};
 
 //here for reference atm TODO: delete
 const handleTrade = async (e, onTradeCompleted) => {
@@ -340,27 +357,64 @@ const DomoList = (props) => {
     );
 };
 
+const GameSelectionComponents = (props) => {
+    
 
-const App = (props) => {
-    // use State/react data to know if we need to render start/join/game list 
-    //  or if we need to load pointDisplay/Turn Form/etc
-    const [reloadDomos, setReloadDomos] = useState(false);
+    return (
+        <div id="gameSelectionWrapper">
+            <StartGameButton setInGame = {props.setInGame}/>
+            <JoinGameButton setInGame = {props.setInGame} />
+        </div>
+    );
+}
+
+const GameplayComponents = (props) => {
+
     const [gameState, setGameState] = useState({});
+    const [reloadState, setReloadState] = useState(false); //an arbitrary state we can toggle to reload
+    const reloadObject = {val: reloadState, toggle: async () => 
+        {
+            //wait .1 second then force a rerender
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            setReloadState(!reloadState)
+        }};
 
     useEffect(() => {
         socketSubscriptions(setGameState);
     });
 
-
     return (
-        <div>
-            <StartGameButton />
-            <JoinGameButton />
+        <div id="gameplayWrapper">
             <PointDisplay gameState = {gameState}/>
-            <TurnForm gameState = {gameState}/>
+            <TurnForm gameState = {gameState} reload= {reloadObject}/>
+            <LeaveCurrentRoomButton setInGame = {props.setInGame} />
         </div>
     );
+}
+
+
+const App = (props) => {
+
+    const [inGame, setInGame] = useState(localStorage.getItem('gameRoomCode') !== null);
+
+
+    if(inGame) {
+        return (
+            <GameplayComponents setInGame = {setInGame}/>
+        );
+    } else {
+        return (
+            <GameSelectionComponents setInGame = {setInGame}/>
+        );
+    }
+
+
+    
 };
+
+
+
+
 
 const socketFirstTime = () => {
     socketSubscriptions();
@@ -410,10 +464,7 @@ const socketSubscriptions = (setGameState) => {
 const init = () => {
     const root = createRoot(document.getElementById('app'));
 
-    let gameState = {};
-    root.render(<App gameState={gameState}/>);
-
-
+    root.render(<App/>);
     
     //socket setup:
     socketFirstTime();

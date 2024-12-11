@@ -4,6 +4,7 @@ const { Game, Account } = models;
 const gamePage = async (req, res) => res.render('app');
 module.exports.gamePage = gamePage;
 
+
 const getNewPlayerData = async (username) => {
     // get user data
     let playerData = {};
@@ -261,6 +262,7 @@ const getGameData = async (roomCode) => {
 module.exports.getGameData = getGameData;
 
 
+
 //a function that sees if a game with a given room code exists, and if it's waiting for turn input. 
 // If it is, returns that it is and what the turn option was and sets it to no longer be. if it isn't, returns that and sets it to be, storing the turn option
 const turnRecieved = async (roomCode, turnOpt) => {
@@ -331,6 +333,15 @@ const joinPlayerToGame = async (roomCode, player) => {
 }
 module.exports.joinPlayerToGame = joinPlayerToGame;
 
+// a version of findAllGamesWithPlayer that can be called from a get req
+const getAllGamesWithPlayer = async (req, res) => {
+    let games = await findAllGamesWithPlayer(req.session.account.username);
+
+    return res.status(200).json(games);
+};
+module.exports.getAllGamesWithPlayer = getAllGamesWithPlayer;
+
+// finds and returns all games with the given username - adds data on what the player IS to the game
 const findAllGamesWithPlayer = async (username) => {
 
     //first, get account data
@@ -349,13 +360,21 @@ const findAllGamesWithPlayer = async (username) => {
     try {
         const p1Query = {player1: accID};
         const p2Query = {player2: accID};
-        games = await Game.find(p1Query).select('roomCode').lean().exec();
-        const p2games = await Game.find(p2Query).select('roomCode').lean().exec();
+        games = await Game.find(p1Query).lean().exec();
+        const p2games = await Game.find(p2Query).lean().exec();
+
+        games.forEach( (game) => {
+            game.thisPlayerIs = 0;
+        } );
+        p2games.forEach( (game) => {
+            game.thisPlayerIs = 1;
+        } );
+
         games = games.concat(p2games);
 
     } catch (err) {
         console.log(err);
-        return {error: `Error finding games to allow rejoin!`}
+        return {error: `Error finding games with player ${username}`};
     }
 
     return games;

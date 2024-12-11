@@ -81,7 +81,7 @@ const attemptChangePassword = (req, res) => {
       const query = {username: username};
       await Account.findOneAndUpdate(query, newData).lean().exec();
 
-      return res.status(201).json({ message: 'Account Updated'});
+      return res.status(201).json({redirect: '/game'});
 
     } catch (error) {
       console.log(err);
@@ -93,7 +93,7 @@ const attemptChangePassword = (req, res) => {
 };
 
 const togglePremium = async (req, res) => {
-  username = req.session.account.username;
+  let username = req.session.account.username;
 
   try {
     const query = {username: username};

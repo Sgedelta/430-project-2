@@ -77,7 +77,7 @@ const socketMakeRoom = async (socket, session) => {
     if(gameResult.error) {
         socket.emit('ErrorChannel', gameResult);
     } else {
-        socket.emit('JoinGame', gameResult.roomCode);
+        socket.emit('JoinGame', {roomCode: gameResult.roomCode, player: 0});
     }
 }
 
@@ -136,6 +136,12 @@ const socketJoinGame = async (socket, session, roomCode, returnData) => {
 }
 
 const socketRejoinOldRooms = async (socket, session) => {
+
+    if(!session || !session.account || !session.account.username) {
+        const error = {error: 'Error Rejoining rooms due to session error'};
+        socket.emit('ErrorChannel', error);
+        return;
+    }
     
     // query game to find rooms with this player is in an active game (1 or 2)
     const gamesData = await GameLogic.findAllGamesWithPlayer(session.account.username);

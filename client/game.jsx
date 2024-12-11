@@ -136,7 +136,7 @@ const TurnForm = (props) => {
                 </label>
             </ul>   
 
-            <input className="makeDomoSubmit" type="submit" value = "Submit Turn" />
+            <input type="submit" value = "Submit Turn" />
             
             </fieldset>
         </form>
@@ -258,7 +258,7 @@ const RoomCodeDisplay = (props) => {
     return (
         <div id = "roomCodeDisplay">
 
-            Room Code: {roomCode}
+            <h3>Room Code: {roomCode}</h3>
 
 
         </div>
@@ -315,104 +315,53 @@ const LeaveCurrentRoomButton = (props) => {
 
 };
 
-//here for reference atm TODO: delete
-const handleTrade = async (e, onTradeCompleted) => {
-    e.preventDefault();
-    helper.hideError();
-
-    const name = document.querySelector("#domoTradeName").value;
-    const otherUser = document.querySelector("#otherUser").value;
-
-    //make sure we have name and another user
-    if(!name || !otherUser) {
-        helper.handleError("All fields required!");
-        return false;
-    }
-
-    //make sure that we have a domo with that name 
-    const ourDomos = await fetch('/getDomos');
-    const domoData = await ourDomos.json();
-    const filteredDomos = domoData.domos.filter((domo) => domo.name === name);
-
-    if(filteredDomos.length === 0) {
-        helper.handleError("No Domo with that name!");
-        return false;
-    }
-
-    const otherUsers = await fetch('/getAllUsernames');
-    const usernameData = await otherUsers.json();
-    const filteredUsers = usernameData.accounts.filter((user) => user === otherUser)
-
-    if(filteredUsers.length === 0) {
-        helper.handleError("No User with that Username found!");
-        return false;
-    }
-
-    const filteredDomoData = filteredDomos[0];
-    const filteredUser = filteredUsers[0];
-
-
-    helper.sendPost(e.target.action, {filteredDomoData, filteredUser}, onTradeCompleted);
-    return false;
-};
-
-//here for reference atm TODO: delete
-const TradeForm = (props) => {
-    return(
-        <form id="tradeForm"
-        name = "tradeForm"
-        onSubmit={(e) => handleTrade(e, props.triggerReload)}
-        action="/trade"
-        method="POST"
-        className="tradeForm"
-        >
-            <label htmlFor="name">Domo Name: </label>
-            <input id="domoTradeName" type="text" name="name" placeholder="Domo Name" />
-            <label htmlFor="otherUser">Trade To: </label>
-            <input id="otherUser" type="text" name="otherUser" placeholder="Other User" />
-            <input className="tradeDomoSubmit" type="submit" value="Trade Domo" />
-
-        </form>
-    );
-};
-
-//here for reference atm TODO: delete
-const DomoList = (props) => {
-    const [domos, setDomos] = useState(props.domos);
+const GameList = (props) => {
+    const [games, setGames] = useState(props.games);
 
     useEffect(() => {
-        const loadDomosFromServer = async () => {
-            const response = await fetch('/getDomos');
-            const data = await response.json();
-            setDomos(data.domos);
+        const loadGamesFromServer = async () => {
+            let res = await fetch('getAllGames');
+            const data = await res.json();
+            setGames(data);
         };
-        loadDomosFromServer();
-    }, [props.reloadDomos]);
+        loadGamesFromServer();
+    }, [props.reloadGames]);
 
-    if(domos.length === 0) {
-        return(
-            <div className="domoList">
-                <h3 className="emptyName">No Domos Yet!</h3>
+    if(games.length === 0) {
+        return (
+            <div id="gameList">
+                <h3>No Games Stored!</h3>
             </div>
-        );
+        )
     }
 
-    const domoNodes = domos.map(domo => {
+    const gameNodes = games.map(game => {
         return (
-            <div key={domo.id} className="domo">
-                <img src="/assets/img/domoface.jpeg" alt="domo face" className="domoFace" />
-                <h3 className="domoName">Name: {domo.name}</h3>
-                <h3 className="domoTraded">Times Traded: {domo.timesTraded}</h3>
-                <h3 className="domoAge">Age: {domo.age}</h3>
+            <div key={game.id} className = "game">
+                <h3 className = "gameInfoPiece">Room Code: {game.roomCode}</h3>
+                <h3 className = "gameInfoPiece">
+                    {game.gameOver && <span>Game Is Over! </span>}
+                    {!game.gameOver && <span>Game is Ongoing! </span>}
+                    {game.gameOver && 
+                        ((game.thisPlayerIs === 0 && game.winner === 'Player 1') || (game.thisPlayerIs === 1 && game.winner === 'Player 2')) 
+                        && <span>You've Won!</span>}
+                    {game.gameOver && ((game.thisPlayerIs === 0 && game.winner === 'Player 2') || (game.thisPlayerIs === 1 && game.winner === 'Player 1')) 
+                    && <span>You've Lost :[ </span>}
+                </h3>
+                <h3 className = "gameInfoPiece">You Are: Player {game.thisPlayerIs + 1}</h3>
+                <h3 className = "gameInfoPiece">Player One Points: {game.p1Points}</h3>
+                <h3 className = "gameInfoPiece">Player Two Points: {game.p2Points} </h3>
             </div>
         );
     });
 
     return (
-        <div className="domoList">
-            {domoNodes}
+        <div className = "gameList">
+            <h3>Your Games: </h3>
+            <div className = "gameFlex"> {gameNodes} </div>
+
         </div>
-    );
+    )
 };
 
 const GameSelectionComponents = (props) => {
@@ -446,9 +395,11 @@ const GameplayComponents = (props) => {
 
     return (
         <div id="gameplayWrapper">
-            <PointDisplay gameState = {gameState}/>
-            <RoomCodeDisplay />
-            <UseDisplay gameState = {gameState}/>
+            <div id="gameplayTopBar">
+                <PointDisplay gameState = {gameState}/>
+                <RoomCodeDisplay />
+                <UseDisplay gameState = {gameState}/>
+            </div>
             <TurnForm gameState = {gameState} reload = {reloadToggle}/>
             <LeaveCurrentRoomButton setInGame = {props.setInGame} />
         </div>
@@ -460,6 +411,7 @@ const App = (props) => {
 
     const [inGame, setInGame] = useState(localStorage.getItem('gameRoomCode') !== null);
     const isPremium = localStorage.getItem('appIsPremium') === "true";
+    const [reloadGames, setReloadGames] = useState(false);
 
     if(inGame) {
         return (
@@ -472,6 +424,8 @@ const App = (props) => {
         return (
             <div> 
                 <GameSelectionComponents setInGame = {setInGame}/>
+                <GameList games = {[]} reloadGames = {reloadGames}/>
+                <AdSpace display={!isPremium} />
             </div>
         );
     }
@@ -524,11 +478,11 @@ const socketSubscriptions = (setGameState, setInGame) => {
     //set our game data to the room code and that we are player one
     socket.on('JoinGame', (joinInfo) => {
         
-        if(setGameInfo)
+        if(joinInfo)
             setGameInfo({roomCode: joinInfo.roomCode, player: joinInfo.player});
         
         socket.emit('RequestGameState', joinInfo.roomCode);
-        
+
         if(setInGame)
             setInGame(true);
     

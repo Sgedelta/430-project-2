@@ -75,7 +75,7 @@ const TurnForm = (props) => {
     const player = localStorage.getItem('gamePlayerValue');
     let disabled = localStorage.getItem('gameTurnFormDisabled');
     if(disabled === null) {
-        disabled = true;
+        disabled = false;
     }
     let uses;
 

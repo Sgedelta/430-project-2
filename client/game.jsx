@@ -306,6 +306,7 @@ const LeaveCurrentRoomButton = (props) => {
             e.preventDefault();
             localStorage.removeItem('gameRoomCode');
             localStorage.removeItem('gamePlayerValue');
+            localStorage.removeItem('gameTurnFormDisabled');
             props.setInGame(false);
         }}
         >

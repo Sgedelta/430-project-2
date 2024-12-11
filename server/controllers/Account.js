@@ -62,11 +62,11 @@ const attemptChangePassword = (req, res) => {
   const newPass = `${req.body.newPass}`;
   const newPass2 = `${req.body.newPass2}`;
 
-  if(!username || !pass || !newPass || !newPass2) {
-    return res.status(400).json({ error: 'All Fields are Required!'});
+  if (!username || !pass || !newPass || !newPass2) {
+    return res.status(400).json({ error: 'All Fields are Required!' });
   }
 
-  if(newPass !== newPass2) {
+  if (newPass !== newPass2) {
     return res.status(400).json({ error: 'Passwords do not match!' });
   }
 
@@ -77,78 +77,75 @@ const attemptChangePassword = (req, res) => {
 
     try {
       const hash = await Account.generateHash(newPass);
-      const newData = {password: hash};
-      const query = {username: username};
+      const newData = { password: hash };
+      const query = { username };
       await Account.findOneAndUpdate(query, newData).lean().exec();
 
-      return res.status(201).json({redirect: '/game'});
-
+      return res.status(201).json({ redirect: '/game' });
     } catch (error) {
       console.log(err);
-      return res.status(500).json({ error: 'An error occured'});
+      return res.status(500).json({ error: 'An error occured' });
     }
-
   });
-
 };
 
 const togglePremium = async (req, res) => {
-  let username = req.session.account.username;
+  const { username } = req.session.account;
 
   try {
-    const query = {username: username};
+    const query = { username };
     let isPremium = await Account.findOne(query).select('isPremium').lean().exec();
 
-    //this is the account object, so we're seeing if we got a response...
-    if(!isPremium || isPremium === null) {
-      return res.status(500).json({error: 'User not found!'});
+    // this is the account object, so we're seeing if we got a response...
+    if (!isPremium || isPremium === null) {
+      return res.status(500).json({ error: 'User not found!' });
     }
 
-    //grab the actual status, now that we know it won't error.
+    // grab the actual status, now that we know it won't error.
     isPremium = isPremium.isPremium;
 
-    //now, for accounts that aren't tracking it already, add it as true (they are attempting to toggle, default is false)
-    if(isPremium === null) {
+    // now, for accounts that aren't tracking it already, add it as true
+    //  (they are attempting to toggle, default is false)
+    if (isPremium === null) {
       isPremium = true;
     } else {
-      //otherwise, toggle the state
+      // otherwise, toggle the state
       isPremium = !isPremium;
     }
 
-    //now update the docs
-    await Account.findOneAndUpdate(query, {isPremium: isPremium}).lean().exec();
+    // now update the docs
+    await Account.findOneAndUpdate(query, { isPremium }).lean().exec();
 
-    return res.status(201).json({isPremium: isPremium});
-  } catch(err) {
+    return res.status(201).json({ isPremium });
+  } catch (err) {
     console.log(err);
-    return res.status(500).json({error: 'Error toggling premium mode'});
+    return res.status(500).json({ error: 'Error toggling premium mode' });
   }
 };
 
 const isPremium = async (req, res) => {
-  username = req.session.account.username;
+  const { username } = req.session.account;
 
   try {
-    const query = {username: username};
-    let isPremium = await Account.findOne(query).select('isPremium').lean().exec();
+    const query = { username };
+    const accIsPremium = await Account.findOne(query).select('isPremium').lean().exec();
 
-    //this is the account object, so we're seeing if we got a response...
-    if(!isPremium || isPremium === null) {
-      return res.status(500).json({error: 'User not found!'});
+    // this is the account object, so we're seeing if we got a response...
+    if (!accIsPremium || accIsPremium === null) {
+      return res.status(500).json({ error: 'User not found!' });
     }
 
-    //account for accounts that do not know what they are (made before feature)
-    if(isPremium.isPremium === null) {
-      isPremium.isPremium = false;
+    // account for accounts that do not know what they are (made before feature)
+    if (accIsPremium.isPremium === null) {
+      accIsPremium.isPremium = false;
     }
 
-    return res.status(200).json(isPremium);
-
-  }  catch(err) {
+    return res.status(200).json(accIsPremium);
+  } catch (err) {
     console.log(err);
-    return res.status(500).json({error: 'Error getting if account is premium'});
+    return res.status(500).json({ error: 'Error getting if account is premium' });
   }
-}
+};
 
 const getAllAccountNames = async (req, res) => {
   try {
@@ -167,8 +164,6 @@ const getAllAccountNames = async (req, res) => {
     return res.status(500).json({ error: 'Error retrieving Usernames!' });
   }
 };
-
-
 
 module.exports = {
   loginPage,

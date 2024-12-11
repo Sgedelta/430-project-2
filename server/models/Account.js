@@ -46,14 +46,14 @@ const AccountSchema = new mongoose.Schema({
   isPremium: {
     type: Boolean,
     default: false,
-  }
+  },
 });
 
 // Converts a doc to something we can store in redis later on.
 AccountSchema.statics.toAPI = (doc) => ({
   username: doc.username,
   _id: doc._id,
-  
+
 });
 
 // Helper function to hash a password

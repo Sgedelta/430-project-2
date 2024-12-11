@@ -1,42 +1,36 @@
 const models = require('../models');
+
 const { Game, Account } = models;
 
 const gamePage = async (req, res) => res.render('app');
 module.exports.gamePage = gamePage;
 
-
 const getNewPlayerData = async (username) => {
-    // get user data
-    let playerData = {};
-    try {
-        const query = {username: username}
-        const user = await Account.findOne(query).lean().exec();
+  // get user data
+  const playerData = {};
+  try {
+    const query = { username };
+    const user = await Account.findOne(query).lean().exec();
 
+    // generate the new room code
+    playerData.newRoomCode = `${user.username}${user.gamesHosted}`;
+    // send this player's mongoose id to the game to log it
+    playerData.player1_id = user._id;
 
-
-        //generate the new room code
-        playerData.newRoomCode = `${user.username}${user.gamesHosted}`;
-        //send this player's mongoose id to the game to log it
-        playerData.player1_id = user._id;
-
-        Account.findOneAndUpdate(query, {gamesHosted: user.gamesHosted+1}).lean().exec();
-
-
-
-    } catch (err) {
-        console.log(err);
-        return {error: "An error occured finding player!"};
-    }
-    return playerData;
+    Account.findOneAndUpdate(query, { gamesHosted: user.gamesHosted + 1 }).lean().exec();
+  } catch (err) {
+    console.log(err);
+    return { error: 'An error occured finding player!' };
+  }
+  return playerData;
 };
 
 const startGame = async (session) => {
-
   const playerData = await getNewPlayerData(session.account.username);
 
-  if(playerData.error) {
+  if (playerData.error) {
     // TODO: handle error here!
-    return {error: `Error Starting Game: ${playerData.error}`}
+    return { error: `Error Starting Game: ${playerData.error}` };
   }
 
   const gameData = {
@@ -51,11 +45,10 @@ const startGame = async (session) => {
   } catch (err) {
     console.log(err);
     if (err.code === 11000) {
-      return { error: `Game with attempted code already exists! Try Again!` };
+      return { error: 'Game with attempted code already exists! Try Again!' };
     }
     return { error: 'Error Starting Game!' };
   }
-  
 };
 module.exports.startGame = startGame;
 
@@ -195,13 +188,28 @@ const UpdateDocs = (turnOpts, oldDocs) => {
   return newDocs;
 };
 
+const getGameData = async (roomCode) => {
+  try {
+    // get the game's data
+    const query = { roomCode };
+    const docs = await Game.find(query).select(
+      'p1Points p1Uses p2Points p2Uses winner gameOver',
+    ).lean().exec();
+    return docs[0];
+  } catch (err) {
+    console.log(err);
+    return { error: `Error retreiving game with code ${roomCode}` };
+  }
+};
+module.exports.getGameData = getGameData;
+
 const handleGameLogic = async (turnOptions) => {
   // TODO: handle game logic and then return an object with the current score
   // TODO: update game object with score
   let updatedData = {};
 
   try {
-    //get gameData
+    // get gameData
     const query = { roomCode: turnOptions.roomCode };
 
     let docs = await getGameData(turnOptions.roomCode);
@@ -244,140 +252,116 @@ const handleGameLogic = async (turnOptions) => {
 };
 module.exports.handleGameLogic = handleGameLogic;
 
-const getGameData = async (roomCode) => {
-
-    try {
-        // get the game's data
-        const query = { roomCode: roomCode };
-        let docs = await Game.find(query).select(
-            'p1Points p1Uses p2Points p2Uses winner gameOver',
-        ).lean().exec();
-        return docs[0];
-    }
-    catch (err) {
-        console.log(err);
-        return {error:  `Error retreiving game with code ${roomCode}`}
-    }
-}
-module.exports.getGameData = getGameData;
-
-
-
-//a function that sees if a game with a given room code exists, and if it's waiting for turn input. 
-// If it is, returns that it is and what the turn option was and sets it to no longer be. if it isn't, returns that and sets it to be, storing the turn option
+// a function that sees if a game with a given room code exists, and if it's waiting for turn input.
+// If it is, returns that it is and what the turn option was and sets it to no longer be.
+//   if it isn't, returns that and sets it to be, storing the turn option
 const turnRecieved = async (roomCode, turnOpt) => {
-    try {
-        const query = {roomCode: roomCode};
-        let game = await Game.findOne(query).select("turnOngoing turnOption").lean().exec();
+  try {
+    const query = { roomCode };
+    const game = await Game.findOne(query).select('turnOngoing turnOption').lean().exec();
 
-        //we need to return that the game is waiting for a turn.
-        if(game.turnOngoing) {
-            game.turnOngoing = false;
+    // we need to return that the game is waiting for a turn.
+    if (game.turnOngoing) {
+      game.turnOngoing = false;
 
-            await Game.findOneAndUpdate(query, game);
+      await Game.findOneAndUpdate(query, game);
 
-            return {continue: true, opt: game.turnOption};
-        } 
-        //the game is not waiting for a turn.
-        else {
-            game.turnOngoing = true;
-            game.turnOption = turnOpt;
-            
-            await Game.findOneAndUpdate(query, game);
-
-            return {continue: false};
-        }
-
-    } catch (err) {
-        return {error: "Error recieving turn information!"}
+      return { continue: true, opt: game.turnOption };
     }
-}
+    // the game is not waiting for a turn.
+
+    game.turnOngoing = true;
+    game.turnOption = turnOpt;
+
+    await Game.findOneAndUpdate(query, game);
+
+    return { continue: false };
+  } catch (err) {
+    return { error: 'Error recieving turn information!' };
+  }
+};
 module.exports.turnRecieved = turnRecieved;
 
-//a function that returns if the game with the given roomCode exists. Can return an error in a JSON object.
+// a function that returns if the game with the given roomCode exists.
+//   Can return an error in a JSON object.
 const doesGameWithCodeExist = async (roomCode) => {
-    try {
-        const query = {roomCode: roomCode};
-        const game = await Game.findOne(query).lean().exec();
+  try {
+    const query = { roomCode };
+    const game = await Game.findOne(query).lean().exec();
 
-        const gameInfo = {
-            game: game,
-            exists: game !== null,
-        }
+    const gameInfo = {
+      game,
+      exists: game !== null,
+    };
 
-        return gameInfo;
-
-    } catch (err) {
-        console.log(err)
-        return {error: "Error Retrieving game"}
-    }
-}
+    return gameInfo;
+  } catch (err) {
+    console.log(err);
+    return { error: 'Error Retrieving game' };
+  }
+};
 module.exports.doesGameWithCodeExist = doesGameWithCodeExist;
 
 const joinPlayerToGame = async (roomCode, player) => {
-    try {
-        const query = {roomCode: roomCode};
-        let game = await Game.findOne(query).lean().exec();
+  try {
+    const query = { roomCode };
+    const game = await Game.findOne(query).lean().exec();
 
-        if(game.player2 === undefined) {
-            game.player2 = player;
-            await Game.findOneAndUpdate(query, game);
-            return;
-        } else {
-            return {error: 'Error adding player to game - game is full!'}
-        }
-    } catch (err) {
-        console.log(err);
-        return {error: 'Error retrieving game'}
+    if (game.player2 === undefined) {
+      game.player2 = player;
+      await Game.findOneAndUpdate(query, game);
+    } else {
+      return { error: 'Error adding player to game - game is full!' };
     }
-}
-module.exports.joinPlayerToGame = joinPlayerToGame;
-
-// a version of findAllGamesWithPlayer that can be called from a get req
-const getAllGamesWithPlayer = async (req, res) => {
-    let games = await findAllGamesWithPlayer(req.session.account.username);
-
-    return res.status(200).json(games);
+  } catch (err) {
+    console.log(err);
+    return { error: 'Error retrieving game' };
+  }
 };
-module.exports.getAllGamesWithPlayer = getAllGamesWithPlayer;
+module.exports.joinPlayerToGame = joinPlayerToGame;
 
 // finds and returns all games with the given username - adds data on what the player IS to the game
 const findAllGamesWithPlayer = async (username) => {
+  // first, get account data
+  let accID;
+  try {
+    const accQuery = { username };
+    accID = await Account.findOne(accQuery).lean().exec();
+    accID = accID._id;
+  } catch (err) {
+    console.log(err);
+    return { error: `Error finding user with username ${username}` };
+  }
 
-    //first, get account data
-    let accID;
-    try {
-        const accQuery = {username: username};
-        accID = await Account.findOne(accQuery).lean().exec();
-        accID = accID._id;
-    } catch (err) {
-        console.log(err);
-        return {error: `Error finding user with username ${username}`};
-    }
+  // now, find games where this user is player 1 OR player 2
+  let games;
+  try {
+    const p1Query = { player1: accID };
+    const p2Query = { player2: accID };
+    games = await Game.find(p1Query).lean().exec();
+    const p2games = await Game.find(p2Query).lean().exec();
 
-    //now, find games where this user is player 1 OR player 2
-    let games;
-    try {
-        const p1Query = {player1: accID};
-        const p2Query = {player2: accID};
-        games = await Game.find(p1Query).lean().exec();
-        const p2games = await Game.find(p2Query).lean().exec();
+    games.forEach((game) => {
+      game.thisPlayerIs = 0;
+    });
+    p2games.forEach((game) => {
+      game.thisPlayerIs = 1;
+    });
 
-        games.forEach( (game) => {
-            game.thisPlayerIs = 0;
-        } );
-        p2games.forEach( (game) => {
-            game.thisPlayerIs = 1;
-        } );
+    games = games.concat(p2games);
+  } catch (err) {
+    console.log(err);
+    return { error: `Error finding games with player ${username}` };
+  }
 
-        games = games.concat(p2games);
-
-    } catch (err) {
-        console.log(err);
-        return {error: `Error finding games with player ${username}`};
-    }
-
-    return games;
-    
-}
+  return games;
+};
 module.exports.findAllGamesWithPlayer = findAllGamesWithPlayer;
+
+// a version of findAllGamesWithPlayer that can be called from a get req
+const getAllGamesWithPlayer = async (req, res) => {
+  const games = await findAllGamesWithPlayer(req.session.account.username);
+
+  return res.status(200).json(games);
+};
+module.exports.getAllGamesWithPlayer = getAllGamesWithPlayer;

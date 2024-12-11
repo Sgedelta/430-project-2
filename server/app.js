@@ -48,7 +48,7 @@ redisClient.connect().then(() => {
     secret: 'Lets Play a Game...',
     resave: false,
     saveUninitialized: false,
-  })
+  });
 
   app.use(sessionMiddleware);
 

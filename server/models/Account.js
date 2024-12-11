@@ -42,6 +42,10 @@ const AccountSchema = new mongoose.Schema({
     required: true,
     default: 0,
     min: 0,
+  },
+  isPremium: {
+    type: Boolean,
+    default: false,
   }
 });
 

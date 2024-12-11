@@ -2,7 +2,7 @@ const models = require('../models');
 
 const { Domo, Account } = models;
 
-const makerPage = async (req, res) => res.render('app');
+
 
 const getDomos = async (req, res) => {
   try {

@@ -8,7 +8,7 @@ module.exports.requiresLogin = requiresLogin;
 
 const requiresLogout = (req, res, next) => {
   if (req.session.account) {
-    return res.redirect('/maker');
+    return res.redirect('/game');
   }
   return next();
 };
@@ -31,12 +31,4 @@ if (process.env.NODE_ENV === 'production') {
   module.exports.requiresSecure = bypassSecure;
 }
 
-const requiresGame = (req, res, next) => {
-  // assumed logged in
 
-  if (req.session.account) {
-
-  }
-
-  return next();
-};

@@ -5,7 +5,7 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        app: './client/maker.jsx',
+        app: './client/game.jsx',
         login: './client/login.jsx',
     },
     module: {

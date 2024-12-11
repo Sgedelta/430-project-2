@@ -6,44 +6,13 @@ const {useState, useEffect} = React;
 const {createRoot} = require('react-dom/client');
 
 
-//here for reference atm TODO: delete
-const handleDomo = (e, onDomoAdded) => {
-    e.preventDefault();
-    helper.hideError();
-
-    const name = e.target.querySelector("#domoName").value;
-    const age = e.target.querySelector("#domoAge").value;
-
-    if(!name || !age) {
-        helper.handleError('All fields are required!');
-        return false;
-    }
-
-    helper.sendPost(e.target.action, {name, age}, onDomoAdded);
-    return false;
-};
-
-//a function that tells the server to create a game and joins it as player 1
-const requestNewGame = () => {
-    socket.emit('CreateNewGame');
-};
-
-//a function that attempts to join or rejoin a given game (by room code) 
-const requestJoinGame = (roomCode) => {
-    socket.emit('RequestJoin', roomCode);
-}
-
 //a function that sets our local information to that of a given game's
 const setGameInfo = (roomInfo) => {
-    console.log("setting game info: ");
-    console.log(roomInfo);
     localStorage.setItem("gameRoomCode", roomInfo.roomCode);
     if(roomInfo.player) {
         localStorage.setItem("gamePlayerValue", roomInfo.player);
     }
 }
-
-
 
 let waiting = false;
 
@@ -54,7 +23,7 @@ const handleTurn = async (e) => {
 
     if(!turnOption) {
         //the player did not select something. They need to do that - display an error.
-        //TODO: display error
+        helper.handleError("No Turn Option Selected!");
 
         return;
     }
@@ -91,6 +60,8 @@ const setTurnFormEnabled = (val) => {
     if(turnForm)
         turnForm.disabled = !val;
 
+    localStorage.setItem('gameTurnFormDisabled', !val);
+
 };
 
 const TurnForm = (props) => {
@@ -98,25 +69,33 @@ const TurnForm = (props) => {
 
     //grab some things 
     let data = props.gameState;
+
+
+
     const player = localStorage.getItem('gamePlayerValue');
+    let disabled = localStorage.getItem('gameTurnFormDisabled');
+    if(disabled === null) {
+        disabled = true;
+    }
     let uses;
 
-
     //ignore if they do not give props, or if the player data is not there
-    if(!data.p1Uses || !data.p2Uses) {
+    if(data === null || !data.p1Uses || !data.p2Uses) {
 
         //reload after a delay
-        props.reload.toggle();
+        props.reload();
 
         //return nothing in the mean time
-        return(<div></div>);
+        return(<div>Game Loading...</div>);
     }
+
 
     if(player === 0) {
         uses = data.p1Uses;
     } else {
         uses = data.p2Uses;
     }
+
     
 
     return(
@@ -127,7 +106,7 @@ const TurnForm = (props) => {
         method="POST"
         className = "turnForm"
         >
-            <fieldset id="turnInputWrapper">
+            <fieldset id="turnInputWrapper" disabled = {disabled}>
             <h1>Basic Actions</h1>
             <ul>
                 <label htmlFor="gain"><input type="radio" id="gain" class="turnInput" name="turn_option" value="gain" /> Gain</label>
@@ -168,10 +147,18 @@ const PointDisplay = (props) => {
 
     let data = props.gameState;
 
+    //we don't have data yet, wait for reload to be triggered by game form
+    if(data === null ) {
+        return (
+            <div id="pointDisplay">Points Loading!</div>
+        );
+    }
+
     const player = localStorage.getItem('gamePlayerValue');
     console.log(`player is ${player}`)
     let ourPoints;
     let otherPoints;
+    
     if(player === 0) {
         ourPoints = data.p1Points;
         otherPoints = data.p2Points;
@@ -184,6 +171,7 @@ const PointDisplay = (props) => {
         <fieldset id="pointDisplay" disabled="true">
 
             <div id="ourPoints">
+                <span class="pointLabel"> Your Points: </span>
                 <input type="checkbox" checked = {ourPoints >= 1}/> 
                 <input type="checkbox" checked = {ourPoints >= 2}/> 
                 <input type="checkbox" checked = {ourPoints >= 3}/> 
@@ -192,6 +180,7 @@ const PointDisplay = (props) => {
             </div>
 
             <div id="otherPoints">
+                <span class="pointLabel"> Other Player's Points: </span>
                 <input type="checkbox" checked = {otherPoints >= 1}/> 
                 <input type="checkbox" checked = {otherPoints >= 2}/> 
                 <input type="checkbox" checked = {otherPoints >= 3}/> 
@@ -205,13 +194,83 @@ const PointDisplay = (props) => {
 
 };
 
+//a component that displays the OTHER player's uses.
+const UseDisplay = (props) => {
+
+    let data = props.gameState;
+
+    //we don't have data yet, wait for reload to be triggered by game form
+    if(data === null) {
+        return (
+            <div id="useDisplay">Uses Loading!</div>
+        );
+    }
+
+    const player = localStorage.getItem('gamePlayerValue');
+    let uses;
+    
+    if(player === 0) {
+        uses = data.p1Uses;
+    } else {
+        uses = data.p2Uses;
+    }
+
+    //we don't have uses data - we can't do this in point display because they default to 0 (numbers)
+    if(!uses) {
+        uses = {};
+    }
+
+    return(
+        <fieldset id="useDisplay" disabled="true">
+            <label htmlFor="exp_gain">
+                <input type="checkbox" disabled="true" id="exp_gain_use"  checked={uses.exp_gain < 1}/>
+                Expert Gain
+            </label>
+
+            <label htmlFor="reset">
+                <input type="checkbox" disabled="true" id = "reset_use"  checked={uses.reset < 1}/>
+                Reset
+            </label>
+
+            <label htmlFor="sacrifice">
+                <input type="checkbox" disabled="true" id = "sacrifice_use"  checked={uses.sacrifice < 1}/> <input type="checkbox" disabled="true" id = "sacrifice_use2" checked={uses.sacrifice < 2}/>
+                Sacrifice
+            </label>
+
+            <label htmlFor="steal">
+                <input type="checkbox" disabled="true" id = "steal_use" checked={ uses.steal < 1}/> <input type="checkbox" disabled="true" id = "steal_use2" checked={uses.steal < 2}/>
+                Steal
+            </label>
+        </fieldset>
+    );
+
+};
+
+const RoomCodeDisplay = (props) => {
+
+    let roomCode = localStorage.getItem('gameRoomCode');
+
+    if(roomCode === null) {
+        roomCode = "Room Code Not Found!"
+    }
+
+
+    return (
+        <div id = "roomCodeDisplay">
+
+            Room Code: {roomCode}
+
+
+        </div>
+    );
+}
+
 const StartGameButton = (props) => {
     return(
         <form id="makeNewGameForm"
         onSubmit={(e) => {
             e.preventDefault();
             socket.emit('CreateNewGame');
-            props.setInGame(true);
         }}>
 
             <input type="submit" value = "Make New Game" />
@@ -229,7 +288,6 @@ const JoinGameButton = (props) => {
         onSubmit={(e) => {
             e.preventDefault();
             socket.emit('RequestJoin', roomCode);
-            props.setInGame(true);
         }}>
             <label htmlFor="roomCodeInput">Enter Room Code: </label>
             <input type="text" id="roomCodeInput" 
@@ -371,22 +429,27 @@ const GameSelectionComponents = (props) => {
 const GameplayComponents = (props) => {
 
     const [gameState, setGameState] = useState({});
-    const [reloadState, setReloadState] = useState(false); //an arbitrary state we can toggle to reload
-    const reloadObject = {val: reloadState, toggle: async () => 
+    const [reloadState, setReloadState] = useState(0); 
+    const reloadToggle = async () => 
         {
             //wait .1 second then force a rerender
-            await new Promise((resolve) => setTimeout(resolve, 100));
-            setReloadState(!reloadState)
-        }};
+            if(reloadState % 5 === 0) {
+                socket.emit('RequestGameState', localStorage.getItem('gameRoomCode'));
+            }
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            setReloadState(reloadState+1);
+        };
 
     useEffect(() => {
-        socketSubscriptions(setGameState);
-    });
+        socketSubscriptions(setGameState, props.setInGame);
+    }); 
 
     return (
         <div id="gameplayWrapper">
             <PointDisplay gameState = {gameState}/>
-            <TurnForm gameState = {gameState} reload= {reloadObject}/>
+            <RoomCodeDisplay />
+            <UseDisplay gameState = {gameState}/>
+            <TurnForm gameState = {gameState} reload = {reloadToggle}/>
             <LeaveCurrentRoomButton setInGame = {props.setInGame} />
         </div>
     );
@@ -396,15 +459,20 @@ const GameplayComponents = (props) => {
 const App = (props) => {
 
     const [inGame, setInGame] = useState(localStorage.getItem('gameRoomCode') !== null);
-
+    const isPremium = localStorage.getItem('appIsPremium') === "true";
 
     if(inGame) {
         return (
-            <GameplayComponents setInGame = {setInGame}/>
+            <div>
+                <GameplayComponents setInGame = {setInGame}/>
+                <AdSpace display={!isPremium} />
+            </div>
         );
     } else {
         return (
-            <GameSelectionComponents setInGame = {setInGame}/>
+            <div> 
+                <GameSelectionComponents setInGame = {setInGame}/>
+            </div>
         );
     }
 
@@ -421,13 +489,11 @@ const socketFirstTime = () => {
 
     //additional firstTime setup
      if(localStorage.getItem('gameRoomCode') !== null) {
-        console.log(`Local Storage Is ${localStorage.getItem('gameRoomCode')}`);
-
         socket.emit('RequestGameState', localStorage.getItem('gameRoomCode'));
     }
 };
 
-const socketSubscriptions = (setGameState) => {
+const socketSubscriptions = (setGameState, setInGame) => {
     //first, reset old listeners
     socket.off('TurnComplete');
     socket.off('SetInfo');
@@ -445,6 +511,7 @@ const socketSubscriptions = (setGameState) => {
         waiting = false;
     });
     socket.on('SetInfo', (gameResult) => {
+        
         if(setGameState)
             setGameState(gameResult);
     });
@@ -452,23 +519,138 @@ const socketSubscriptions = (setGameState) => {
     socket.on('ErrorChannel', (err) => {
         console.log(err);
         //Display Error:
-        // TODO: DISPLAY ERROR FUNCTION UPDATE
         helper.handleError(err);
     })
     //set our game data to the room code and that we are player one
-    socket.on('JoinGame', (joinInfo) => setGameInfo({roomCode: joinInfo.roomCode, player: joinInfo.player}));
+    socket.on('JoinGame', (joinInfo) => {
+        
+        if(setGameInfo)
+            setGameInfo({roomCode: joinInfo.roomCode, player: joinInfo.player});
+        
+        socket.emit('RequestGameState', joinInfo.roomCode);
+        
+        if(setInGame)
+            setInGame(true);
+    
+    });
     
 };
 
 
+//PASSWORD CHANGE REGION
+
+const handlePassChange = (e) => {
+    e.preventDefault();
+    helper.hideError();
+
+    const username = e.target.querySelector('#user').value;
+    const pass = e.target.querySelector('#pass').value;
+    const newPass = e.target.querySelector('#newPass').value;
+    const newPass2 = e.target.querySelector('#newPass2').value;
+
+    if(!username || !pass || !newPass || !newPass2) {
+        helper.handleError('All fields are requried!');
+        return false;
+    }
+
+    if(newPass !== newPass2) {
+        helper.handleError('Passwords do not match!');
+        return false;
+    }
+
+    helper.sendPost(e.target.action, {username, pass, newPass, newPass2});
+    return false;
+};
+
+const PassChangeWindow = (props) => {
+    return (
+        <form id="passChangeForm"
+            name = "passChangeForm"
+            onSubmit={handlePassChange}
+            action="/changePass"
+            method="POST"
+            className="mainForm"
+        >
+            <label htmlFor="username">Username: </label>
+            <input id="user" type="text" name="username" placeholder="username" />
+            <label htmlFor="pass">Old Password: </label>
+            <input id="pass" type="password" name="pass" placeholder="old password" />
+            <label htmlFor="newPass">New Password: </label>
+            <input id="newPass" type="password" name="newPass" placeholder="new password" />
+            <label htmlFor="newPass2">New Password: </label>
+            <input id="newPass2" type="password" name="newPass2" placeholder="retype new password" />
+            <input className="formSubmit" type="submit" value = "Change Password" />
+        </form>
+    );
+}
+
+//END PASSWORD CHANGE REGION
+
+//AD / PROFIT REGION
+
+const AdSpace = (props) => {
+
+    if(props.display) {
+        return false;
+    }
+
+    return (
+        <div id="bannerAd">
+            Your Advertisement Here! Or: Enable Premium Mode!
+        </div>
+    );
+}
+
+
+
+
+
+
+
+
+
+//END AD / PROFIT REGION
+
+
 const init = () => {
+    const gameButton = document.getElementById('mainPageButton');
+    const changePassButton = document.getElementById('changePassButton');
+    const premiumButton = document.getElementById('premiumButton');
+
     const root = createRoot(document.getElementById('app'));
 
-    root.render(<App/>);
+    gameButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        root.render(<App />);
+        return false;
+    });
+
+    changePassButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        root.render(<PassChangeWindow />);
+        return false;
+    });
+
+    //rerender app on click
+    premiumButton.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        //send the post
+        helper.sendPost('/togglePremium', {}, (res) => {
+            localStorage.setItem('appIsPremium', res.isPremium);
+            root.render(<App />);
+        });
+        return false;
+    });
+
+    root.render(<App />);
     
     //socket setup:
     socketFirstTime();
-   
+    
+    helper.sendPost('/isPremium', {}, (res) => {
+        localStorage.setItem('appIsPremium', res.isPremium);
+    });
     
 }
 

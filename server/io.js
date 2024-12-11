@@ -61,7 +61,12 @@ const handleTurnInput = async (socket, turnInfo) => {
 };
 
 const returnGameState = async (roomCode) => {
-    const state = await GameLogic.getGameData(roomCode);
+    let state = await GameLogic.getGameData(roomCode);
+
+    if(!state || state === null) {
+        state = {error: `Error retriving game, Game with code ${roomCode} may not exist!`}
+    }
+
     return state;
 }
 
@@ -123,6 +128,7 @@ const socketJoinGame = async (socket, session, roomCode, returnData) => {
 
     if(returnData) {
         socket.emit('JoinGame', joinInfo);
+        
     }
     
     return ;
@@ -170,7 +176,12 @@ const socketSetup = (app, sessionMiddleware) => {
       // answer game state requests from client
       socket.on('RequestGameState', async (roomCode) => {
         let gameState = await returnGameState(roomCode);
-        
+
+        if(gameState.error) {
+            socket.emit('ErrorChannel', gameState);
+            return;
+        }
+
         socket.emit('SetInfo', gameState);
       });
     

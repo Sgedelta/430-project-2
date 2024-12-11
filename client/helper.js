@@ -3,10 +3,33 @@
    end in an error.
 */
 const handleError = (message) => {
-    document.getElementById('errorMessage').textContent = message;
-    document.getElementById('domoMessage').classList.remove('hidden');
+    let printedText; 
+    if(message.error) {
+      printedText = message.error;
+    } else  {
+      printedText = message;
+    }
+    document.getElementById('errorMessage').textContent = printedText;
+    document.getElementById('errorWrapper').classList.remove('hidden');
+
+    waitAndHideError();
   };
 
+
+  const waitAndHideError = async () => {
+
+    //errors remain for 5 seconds
+    await new Promise((resolve) => setTimeout(resolve, 5000)); 
+
+    document.getElementById('errorWrapper').classList.add('fadeOut');
+
+    //fade out animation takes 2 seconds
+    await new Promise((resolve) => setTimeout(resolve, 2000)); 
+
+    document.getElementById('errorWrapper').classList.add('hidden');
+    document.getElementById('errorWrapper').classList.remove('fadeOut');
+
+  }
   
 
 /* Sends post requests to the server using fetch. Will look for various
@@ -22,7 +45,7 @@ const sendPost = async (url, data, handler) => {
     });
   
     const result = await response.json();
-    document.getElementById('domoMessage').classList.add('hidden');
+    hideError();
   
     if(result.redirect) {
       window.location = result.redirect;
@@ -38,7 +61,7 @@ const sendPost = async (url, data, handler) => {
   };
 
   const hideError = () => {
-    document.getElementById('domoMessage').classList.add('hidden');
+    document.getElementById('errorWrapper').classList.add('hidden');
   }
 
 

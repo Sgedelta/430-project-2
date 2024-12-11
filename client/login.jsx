@@ -41,6 +41,8 @@ const handleSignup = (e) => {
 };
 
 
+
+
 const LoginWindow = (props) => {
     return (
         <form id="loginForm"
@@ -60,10 +62,10 @@ const LoginWindow = (props) => {
     );
 };
 
-const SingupWindow = (props) => {
+const SignupWindow = (props) => {
     return (
-        <form id="singupForm"
-            name = "singupForm"
+        <form id="signupForm"
+            name = "signupForm"
             onSubmit={handleSignup}
             action="/signup"
             method="POST"
@@ -82,6 +84,8 @@ const SingupWindow = (props) => {
 };
 
 
+
+
 const init = () => {
     const loginButton = document.getElementById('loginButton');
     const signupButton = document.getElementById('signupButton');
@@ -96,9 +100,11 @@ const init = () => {
 
     signupButton.addEventListener('click', (e) => {
         e.preventDefault();
-        root.render(<SingupWindow />);
+        root.render(<SignupWindow />);
         return false;
     });
+
+
 
     root.render(<LoginWindow />);
 

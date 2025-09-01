@@ -5,6 +5,8 @@ const socket = io();
 const {useState, useEffect} = React;
 const {createRoot} = require('react-dom/client');
 
+//TODO: break things out into seperate files?
+
 
 //a function that sets our local information to that of a given game's
 const setGameInfo = (roomInfo) => {
@@ -248,9 +250,13 @@ const UseDisplay = (props) => {
 
 const RoomCodeDisplay = (props) => {
 
-    let roomCode = localStorage.getItem('gameRoomCode');
+    const [roomCode, setRoomCode] = useState('');
+    useEffect(() => {
+        setRoomCode(localStorage.getItem('gameRoomCode'));
+    })
+    
 
-    if(roomCode === null) {
+    if(roomCode === null || roomCode === '') {
         roomCode = "Room Code Not Found!"
     }
 
@@ -382,7 +388,7 @@ const GameplayComponents = (props) => {
     const [reloadState, setReloadState] = useState(0); 
     const reloadToggle = async () => 
         {
-            //wait .1 second then force a rerender
+            //wait .5 second then force a rerender
             if(reloadState % 5 === 0) {
                 socket.emit('RequestGameState', localStorage.getItem('gameRoomCode'));
             }
@@ -555,13 +561,6 @@ const AdSpace = (props) => {
         </div>
     );
 }
-
-
-
-
-
-
-
 
 
 //END AD / PROFIT REGION

@@ -101,7 +101,7 @@ const socketJoinGame = async (socket, session, roomCode, returnData) => {
 
   if (game.player1._id.equals(session.account._id)) {
     joinInfo.player = 0;
-  } else if (game.player2 === undefined) { // check if undefined firstqqqqqqqqqqqqqqqqq
+  } else if (game.player2 === undefined) { // check if undefined first
     await GameLogic.joinPlayerToGame(game.roomCode, session.account._id);
     joinInfo.player = 1;
   } else if (game.player2._id.equals(session.account._id)) {

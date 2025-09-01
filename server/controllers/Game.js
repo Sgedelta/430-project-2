@@ -17,7 +17,7 @@ const getNewPlayerData = async (username) => {
     // send this player's mongoose id to the game to log it
     playerData.player1_id = user._id;
 
-    Account.findOneAndUpdate(query, { gamesHosted: user.gamesHosted + 1 }).lean().exec();
+    await Account.findOneAndUpdate(query, { gamesHosted: user.gamesHosted + 1 }).lean().exec();
   } catch (err) {
     console.log(err);
     return { error: 'An error occured finding player!' };
@@ -41,7 +41,7 @@ const startGame = async (session) => {
   try {
     const newGame = new Game(gameData);
     await newGame.save();
-    return { message: 'Game Created', roomCode: newGame.roomCode, player: 0 }; // temp message?
+    return { message: 'Game Created', roomCode: newGame.roomCode, player: 0 }; // temp message? //TODO: Remove message
   } catch (err) {
     console.log(err);
     if (err.code === 11000) {
@@ -52,8 +52,9 @@ const startGame = async (session) => {
 };
 module.exports.startGame = startGame;
 
+//Bounce this (and similar, game logic files) to their own file? -> helps organize and shorten file size
 const UpdateDocs = (turnOpts, oldDocs) => {
-  const newDocs = oldDocs;
+  const newDocs = oldDocs; //TODO: make a clone instead of a reference. - or do not return so that it follows transformation pattern better
   // process p1
   switch (turnOpts.p1Opt) {
     case 'gain':
@@ -204,8 +205,6 @@ const getGameData = async (roomCode) => {
 module.exports.getGameData = getGameData;
 
 const handleGameLogic = async (turnOptions) => {
-  // TODO: handle game logic and then return an object with the current score
-  // TODO: update game object with score
   let updatedData = {};
 
   try {
@@ -338,6 +337,7 @@ const findAllGamesWithPlayer = async (username) => {
   try {
     const p1Query = { player1: accID };
     const p2Query = { player2: accID };
+    //make more effecient by making a promise and then awaiting both?
     games = await Game.find(p1Query).lean().exec();
     const p2games = await Game.find(p2Query).lean().exec();
 
